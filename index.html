@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Picnic Scene Retro</title>
+  <style>
+    body { margin:0; overflow:hidden; background:#222; }
+    canvas { width:100%; height:100%; display:block; image-rendering: pixelated; }
+  </style>
+</head>
+<body>
+  <canvas id="bg"></canvas>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script>
+    const scene = new THREE.Scene();
+    const cubeLoader = new THREE.CubeTextureLoader();
+    scene.background = cubeLoader.load([
+      'https://threejs.org/examples/textures/cube/Bridge2/posx.jpg',
+      'https://threejs.org/examples/textures/cube/Bridge2/negx.jpg',
+      'https://threejs.org/examples/textures/cube/Bridge2/posy.jpg',
+      'https://threejs.org/examples/textures/cube/Bridge2/negy.jpg',
+      'https://threejs.org/examples/textures/cube/Bridge2/posz.jpg',
+      'https://threejs.org/examples/textures/cube/Bridge2/negz.jpg'
+    ]);
+
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 10, 25);
+
+    const renderer = new THREE.WebGLRenderer({ canvas: document.querySelector('#bg') });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.autoRotate = false;
+
+    scene.add(new THREE.AmbientLight(0xffeedd, 1.2));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(50, 50, 50);
+    scene.add(dirLight);
+
+    const grassTex = new THREE.TextureLoader().load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg', tex => {
+      tex.anisotropy = 16;
+    });
+    grassTex.wrapS = THREE.RepeatWrapping;
+    grassTex.wrapT = THREE.RepeatWrapping;
+    grassTex.repeat.set(200, 200);
+
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(4000, 4000),
+      new THREE.MeshStandardMaterial({ map: grassTex, color: 0x77aa55 })
+    );
+    ground.rotation.x = -Math.PI/2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    const tableMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+    const table = new THREE.Group();
+    scene.add(table);
+    const tabletop = new THREE.Mesh(new THREE.BoxGeometry(20,1,10), tableMaterial);
+    tabletop.position.y = 2.5;
+    table.add(tabletop);
+    [[-8,4],[8,4],[-8,-4],[8,-4]].forEach(pos=>{
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(1,2.5,1), tableMaterial);
+      leg.position.set(pos[0],1.25,pos[1]);
+      table.add(leg);
+    });
+    const benchGeom = new THREE.BoxGeometry(20,1,2);
+    const bench1 = new THREE.Mesh(benchGeom, tableMaterial); bench1.position.set(0,1.5,7); table.add(bench1);
+    const bench2 = new THREE.Mesh(benchGeom, tableMaterial); bench2.position.set(0,1.5,-7); table.add(bench2);
+    [[-8,7],[8,7],[-8,-7],[8,-7]].forEach(pos=>{
+      const sup = new THREE.Mesh(new THREE.BoxGeometry(1,1.5,1), tableMaterial);
+      sup.position.set(pos[0],0.75,pos[1]);
+      table.add(sup);
+    });
+
+    const petalGeom = new THREE.SphereGeometry(0.3,8,8);
+    const stemGeom = new THREE.CylinderGeometry(0.1,0.1,2,6);
+    const centerGeom = new THREE.SphereGeometry(0.2,8,8);
+    const flowerColors = [0xffc0cb, 0xffe4e1, 0xffb6c1, 0xffdab9, 0xfafad2];
+
+    const flowers = [];
+    function createFlower(x,z){
+      const flower = new THREE.Group();
+      const stem = new THREE.Mesh(stemGeom,new THREE.MeshStandardMaterial({ color:0x00ff00 }));
+      stem.position.y = 1;
+      flower.add(stem);
+      const head = new THREE.Group(); head.position.y=2; flower.add(head);
+      const color = flowerColors[Math.floor(Math.random()*flowerColors.length)];
+      head.add(new THREE.Mesh(centerGeom,new THREE.MeshStandardMaterial({ color })));
+      for(let j=0;j<5;j++){
+        const petal = new THREE.Mesh(petalGeom,new THREE.MeshStandardMaterial({ color }));
+        const angle = (j/5)*Math.PI*2;
+        petal.position.set(Math.cos(angle)*0.3,0,Math.sin(angle)*0.3);
+        head.add(petal);
+      }
+      flower.position.set(x,0,z);
+      scene.add(flower);
+      flowers.push(flower);
+    }
+
+    for(let i=0;i<50;i++){
+      createFlower((Math.random()-0.5)*200,(Math.random()-0.5)*200);
+    }
+
+    const monitor = new THREE.Group(); monitor.position.set(0,3,0); scene.add(monitor);
+    const stand = new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.5,0.2,16),new THREE.MeshStandardMaterial({ color:0x444444 })); stand.position.y=0.1; monitor.add(stand);
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.4,1,16),new THREE.MeshStandardMaterial({ color:0x444444 })); neck.position.y=0.7; monitor.add(neck);
+
+    // bigger and slimmer monitor body
+    const body = new THREE.Mesh(new THREE.BoxGeometry(7,4,0.4),new THREE.MeshStandardMaterial({ color:0x333333 }));
+    body.position.y=2.2; monitor.add(body);
+
+    const canvas2 = document.createElement('canvas'); canvas2.width=512; canvas2.height=128;
+    const ctx = canvas2.getContext('2d');
+    const tex = new THREE.CanvasTexture(canvas2);
+    const screen = new THREE.Mesh(new THREE.BoxGeometry(6.9,3.9,0.1), new THREE.MeshBasicMaterial({ map: tex }));
+    screen.position.set(0,2.2,0.41); monitor.add(screen);
+
+    const messages = ["im sorry shahana","i love you so much","youre so cute","pls maaf kardo","i miss you :(","forever and always","ur my wife"];
+    let idx = 0;
+    function updateScreen(){
+      ctx.fillStyle="#000"; ctx.fillRect(0,0,512,128);
+      ctx.fillStyle="#ffb6c1"; ctx.font="60px Arial";
+      ctx.fillText(messages[idx],10,80); tex.needsUpdate=true;
+      idx=(idx+1)%messages.length;
+    }
+    setInterval(updateScreen,2000); updateScreen();
+
+    function animate(){
+      requestAnimationFrame(animate);
+      controls.update();
+
+      if(flowers.length<150){
+        createFlower((Math.random()-0.5)*400,(Math.random()-0.5)*400);
+      }
+
+      renderer.render(scene,camera);
+    }
+    animate();
+
+    window.addEventListener("resize",()=>{
+      camera.aspect=window.innerWidth/window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
